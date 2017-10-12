@@ -27,11 +27,12 @@
 #define CONFIG_FAN_TOPIC "demo/r1/d/02"           // MQTT-Msg-Topic - subscribe the fan-status from MQTT broker
 
 // DHT sensor
-#define CONFIG_DHT_PIN 0                          // Define the DHT type in the code file
+//#define CONFIG_DHT_PIN 0                          // Define the DHT type in the code file
+//#define CONFIG_DHTTYPE DHT21
 
 // SHT1x sensor
-//#define CONFIG_SHT_DATA_PIN 0
-//#define CONFIG_SHT_CLOCK_PIN 16
+#define CONFIG_SHT_DATA_PIN 4
+#define CONFIG_SHT_CLOCK_PIN 5
 
 // DS18B20 sensor
 #define CONFIG_ONE_WIRE_BUS 10                     // ds_Data pin <-> GPIO10
@@ -48,8 +49,8 @@
 #define CONFIG_SAMPLE_DELAY 10000                 // Milliseconds step - 10 seconds
 
 // SIGNAL LED
-#define CONFIG_SIGNAL_LED  16
+//#define CONFIG_SIGNAL_LED  2
 
 // GPIOs
-#define CONFIG_IO_LED 4                           // GPIO07 of ESP8266 which controls the LED
-#define CONFIG_IO_FAN 5                          // GPIO10 of ESP8266 which controls the FAN
+#define CONFIG_IO_LED 0                           // GPIO07 of ESP8266 which controls the LED
+#define CONFIG_IO_FAN 16                          // GPIO10 of ESP8266 which controls the FAN
