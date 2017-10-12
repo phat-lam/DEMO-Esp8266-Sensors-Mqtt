@@ -8,7 +8,7 @@
  * GPIO05   : Output controls the fans.
  * 
  */
-// Depends on the following Arduino libraries:
+// Depends on the following Arduino libraries: 
 // - Adafruit Unified Sensor Library: https://github.com/adafruit/Adafruit_Sensor
 // - DHT Sensor Library: https://github.com/adafruit/DHT-sensor-library
 
@@ -27,22 +27,23 @@ PubSubClient client(espClient);
 
 // SHT10 sensor
 // SHT lib for T&RH sensor
-//#include <SHT1x.h>
-//SHT1x sht1x(CONFIG_SHT_DATA_PIN, CONFIG_SHT_CLOCK_PIN);
-//float shtTemp = 0;
-//float shtHumi = 0;
-//float shtTempCalib = 0;
+#include <SHT1x.h>
+SHT1x sht1x(CONFIG_SHT_DATA_PIN, CONFIG_SHT_CLOCK_PIN);
+float celsius = 0;
+float humidity = 0;
+float celciusCalib = -0.5;
+float celciusCalib2 = -1;
 
 // DHT sensor
-#include <Adafruit_Sensor.h>
-#include <DHT.h>
-#include <DHT_U.h>
+//#include <Adafruit_Sensor.h>
+//#include <DHT.h>
+//#include <DHT_U.h>
 // Update this to match your DHT type
-#define DHTTYPE DHT21
-float humidity = 0.0;
-float fahrenheit = 0.0;
-float celsius = 0.0;
-DHT_Unified dht(CONFIG_DHT_PIN, DHTTYPE);
+//float humidity = 0.0;
+//float celsius = 0.0;
+//float celciusCalib = -0.5;
+//DHT dht(CONFIG_DHT_PIN, CONFIG_DHTTYPE);
+//DHT_Unified dht(CONFIG_DHT_PIN, CONFIG_DHTTYPE);
 
 // DS18B20 sensor
 #include <OneWire.h>
@@ -50,6 +51,7 @@ DHT_Unified dht(CONFIG_DHT_PIN, DHTTYPE);
 OneWire oneWire(CONFIG_ONE_WIRE_BUS);
 DallasTemperature DS18B20(&oneWire);
 float dsTemp = 0;
+float dsTempCalib = 1;
 
 // Capacitive soil moisture sensor
 int smcValue = 0;
@@ -105,10 +107,13 @@ void receivedMsg(char* topic, byte* payload, unsigned int payloadLength)
 // ----------------------------------- SETUP() - RUN ONCE -----------------------------------//
 void setup() {
   // GPIOs as OUTPUT
-  pinMode(CONFIG_SIGNAL_LED, OUTPUT);
-  //digitalWrite(CONFIG_SIGNAL_LED, HIGH);
+  //pinMode(CONFIG_SIGNAL_LED, OUTPUT);
+  //digitalWrite(CONFIG_SIGNAL_LED, LOW);
   pinMode(CONFIG_IO_LED, OUTPUT);
   pinMode(CONFIG_IO_FAN, OUTPUT);
+
+  // DHT sensor
+  //dht.begin();
 
   // Initilize baud-rate of Serial interface
   Serial.begin(115200);
@@ -199,75 +204,98 @@ void loop()
       case 2:
       {
         // Read DHT Temperature
-        sensors_event_t event;
-        for (k = 0; k < 5; k++)
-        {
-          dht.temperature().getEvent(&event);
-          if (isnan(event.temperature))
-          {
-            celsius = -1;
-            //fahrenheit = -1;
-          }
-          else
-          {
-            celsius = event.temperature;
-            //fahrenheit = cToF(celsius);
-            break;
-          }
-          delay(100);
-        }
+        int count = 0;
+        boolean check = false;
+        //        do
+        //        {
+        //          // Reading temperature & hunidity
+        //          float h = dht.readHumidity();
+        //          float t = dht.readTemperature();
+        //          // Check if any reads failed and exit early (to try again).
+        //          if (isnan(h) || isnan(t)) 
+        //          {
+        //            Serial.println("Failed to read from DHT sensor!");
+        //            celsius = -1;
+        //            humidity = -1;
+        //            return;
+        //          }
+        //          else
+        //          {
+        //            celsius = t + celciusCalib;
+        //            humidity = h;
+        //            break;
+        //          }
+        //          
+        //          count++;
+        //          delay(200);
+        //        }
+        //        while ((celsius == -1 || humidity == -1) && count < 2);
 
-        // Read DHT Humidity
-        for (k = 0; k < 5; k++)
+        // Read SHT1x sensor - AirTemp & AirRH
+        count = 0;
+        check = false;
+        do
         {
-          dht.humidity().getEvent(&event);
-          if (isnan(event.relative_humidity))
+          float h = sht1x.readHumidity();
+          float t = sht1x.readTemperatureC();
+          if (h > 0 && h < 100 && t > (-40) && t < 123) 
           {
-            //Serial.println("Error reading humidity!");
-            humidity = -1;
+            humidity = h;
+            celsius = t;
+            if (celsius > 29 && celsius < 34) celsius += celciusCalib;
+            if (celsius >= 34) celsius += celciusCalib2;
+            check = true;
           }
           else
           {
-            humidity = event.relative_humidity;
-            break;
+            humidity = -1;
+            celsius = -1;
+            count++;
           }
           delay(100);
         }
-        
-        //        // Read SHT1x sensor - AirTemp & AirRH
-        //        shtHumi = sht1x.readHumidity();
-        //        if ((shtHumi < 0) || (shtHumi > 100)) shtHumi = -1;
-        //        // Read temperature as Celsius (the default)
-        //        shtTemp = sht1x.readTemperatureC();
-        //        //Calibration, only for node 3 
-        //        shtTemp = shtTemp + shtTempCalib;
-        //        if (shtTemp < 0) shtTemp = -1;
+        while (check == false && count < 2);
        
         // Read DS18B20 sensor - SoilTemp
-        int ds_count = 0;
+        count = 0;
+        check = false;
         do 
         {
           DS18B20.requestTemperatures();
-          dsTemp = DS18B20.getTempCByIndex(0);
-          ds_count++;
+          float st = DS18B20.getTempCByIndex(0);
+          if (dsTemp > (-127.0) && dsTemp < 85.0) 
+          {
+            dsTemp = st + dsTempCalib;
+            check = true;
+          }
+          else
+          {
+            dsTemp = -1;
+            count++;
+          }
+          delay(100);
         } 
-        while ((dsTemp == 85.0 || dsTemp == (-127.0)) && ds_count < 2);
+        while (check == false && count < 2);
 
-        // Soil SMC - T
-        for (k = 0; k < 3; k++)
+        // Reading soil moisture content
+        count = 0;
+        check = false;
+        do
         {
           float v = readSoilSensor(CONFIG_IO_SOIL_MOISTURE, CONFIG_SMC_SAMPLE_NUMBER, CONFIG_WATER_VALUE, CONFIG_AIR_VALUE);
           if (v >= 0 && v <= 100)
           {
             smcValue = (int)v;
-            break;
+            check = true;
           }
           else
           {
             smcValue = -1;
+            count++;
           }
           delay(100);
         }
+        while (check == false && count < 2);
         
         Serial.println("------------------------------");
         Serial.print("Air Temperature: ");
@@ -288,6 +316,11 @@ void loop()
         String json = buildJson();
         client.publish(CONFIG_MQTT_TOPIC, json.c_str());
         Serial.println("Sent to MQTT broker!");
+        
+        //        digitalWrite(CONFIG_SIGNAL_LED, HIGH);
+        //        delay (150);
+        //        digitalWrite(CONFIG_SIGNAL_LED, LOW);
+  
         break;
       } // End case
     }   // End switch
